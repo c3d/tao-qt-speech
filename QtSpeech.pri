@@ -44,6 +44,8 @@ unix:!mac {
 
     INCLUDEPATH += $$PWD/festival/speech_tools/include
     INCLUDEPATH += $$PWD/festival/festival/src/include
+    INCLUDEPATH += /usr/include/festival
+    INCLUDEPATH += /usr/include/speech_tools
 
     LIBS += -lncurses
     LIBS += -L$$PWD/festival/festival/src/lib -lFestival
