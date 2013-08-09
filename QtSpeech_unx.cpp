@@ -124,7 +124,7 @@ void QtSpeech::tell(QString text)
     QMetaObject::invokeMethod(th, "say", Qt::QueuedConnection, Q_ARG(QString,text));
 }
 
-void QtSpeech::say(QString text) const
+void QtSpeech::say(QString text)
 {
     if (!d->speechThread) {
         d->speechThread = new QThread;
