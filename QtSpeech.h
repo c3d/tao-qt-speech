@@ -52,9 +52,8 @@ public:
     const VoiceName & name() const; //!< Name of current voice
     static VoiceNames voices();     //!< List of available voices in system
 
-    void say(QString) const;                                    //!< Say something, synchronous
-    void tell(QString) const;                                   //!< Tell something, asynchronous
-    void tell(QString, QObject * obj, const char * slot) const; //!< Tell something, invoke slot at end
+    void say(QString);              //!< Say something, synchronous
+    void tell(QString);             //!< Tell something, asynchronous
 
 signals:
     void finished();

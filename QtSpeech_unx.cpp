@@ -58,14 +58,10 @@ void QtSpeech_th::say(QString text) {
 // internal data
 class QtSpeech::Private {
 public:
-    Private()
-        :onFinishSlot(0L) {}
-
+    Private() {}
     VoiceName name;
     static const QString VoiceId;
 
-    const char * onFinishSlot;
-    QPointer<QObject> onFinishObj;
     static QPointer<QThread> speechThread;
 };
 QPointer<QThread> QtSpeech::Private::speechThread = 0L;
@@ -114,21 +110,12 @@ QtSpeech::VoiceNames QtSpeech::voices()
     return vs;
 }
 
-void QtSpeech::tell(QString text) const {
-    tell(text, 0L,0L);
-}
-
-void QtSpeech::tell(QString text, QObject * obj, const char * slot) const
+void QtSpeech::tell(QString text)
 {
     if (!d->speechThread) {
         d->speechThread = new QThread;
         d->speechThread->start();
     }
-
-    d->onFinishObj = obj;
-    d->onFinishSlot = slot;
-    if (obj && slot)
-        connect(const_cast<QtSpeech *>(this), SIGNAL(finished()), obj, slot);
 
     QtSpeech_th * th = new QtSpeech_th;
     th->moveToThread(d->speechThread);

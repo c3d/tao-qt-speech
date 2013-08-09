@@ -19,15 +19,12 @@
 #include <QtCore>
 #include <QtSpeech>
 
-#undef UNICODE
-#include <sapi.h>
-#include <sphelper.h>
-#include <comdef.h>
-#define UNICODE
-
+#define WINVER 0x0500 // At least WinXP required
 #include <windows.h>
-#include <windowsx.h>
-#include <commctrl.h>
+#include "sapi.hh"
+#include "sphelper.hh"
+
+using std::wstring;
 
 namespace QtSpeech_v1 { // API v1.0
 
@@ -39,7 +36,7 @@ namespace QtSpeech_v1 { // API v1.0
         QString msg = #e;\
         msg += ":"+QString(__FILE__);\
         msg += ":"+QString::number(__LINE__)+":"+#x+":";\
-        msg += _com_error(hr).ErrorMessage();\
+        msg += " error code " + hr ;\
         throw e(msg);\
     }\
 }
@@ -48,20 +45,17 @@ namespace QtSpeech_v1 { // API v1.0
 class QtSpeech::Private {
 public:
     Private()
-        :onFinishSlot(0L),waitingFinish(false) {}
+        : waitingFinish(false) {}
 
     VoiceName name;
 
     static const QString VoiceId;
     typedef QPointer<QtSpeech> Ptr;
-    static QList<Ptr> ptrs;
+    static QList<Ptr> ptrs;  // Useless?
 
-    CComPtr<ISpVoice> voice;
+    ISpVoice * voice;
 
-    const char * onFinishSlot;
-    QPointer<QObject> onFinishObj;
     bool waitingFinish;
-
     class WCHAR_Holder {
     public:
         WCHAR * w;
@@ -82,19 +76,21 @@ QList<QtSpeech::Private::Ptr> QtSpeech::Private::ptrs = QList<QtSpeech::Private:
 QtSpeech::QtSpeech(QObject * parent)
     :QObject(parent), d(new Private)
 {
+    // FIXME no CoUninitialize()
     CoInitialize(NULL);
-    SysCall( d->voice.CoCreateInstance( CLSID_SpVoice ), InitError);
+    SysCall( CoCreateInstance(CLSID_SpVoice, NULL, CLSCTX_INPROC_SERVER, IID_ISpVoice,
+                              (void**)&d->voice), InitError);
 
     VoiceName n;
     WCHAR * w_id = 0L;
     WCHAR * w_name = 0L;
-    CComPtr<ISpObjectToken> voice;
+    ISpObjectToken * voice;
     SysCall( d->voice->GetVoice(&voice), InitError);
     SysCall( SpGetDescription(voice, &w_name), InitError);
     SysCall( voice->GetId(&w_id), InitError);
     n.name = QString::fromWCharArray(w_name);
     n.id = QString::fromWCharArray(w_id);
-    voice.Release();
+    voice->Release();
 
     if (n.id.isEmpty())
         throw InitError(Where+"No default voice in system");
@@ -107,33 +103,35 @@ QtSpeech::QtSpeech(VoiceName n, QObject * parent)
     :QObject(parent), d(new Private)
 {
     ULONG count = 0;
-    CComPtr<IEnumSpObjectTokens> voices;
+    IEnumSpObjectTokens * voices;
 
+    // FIXME no CoUninitialize()
     CoInitialize(NULL);
-    SysCall( d->voice.CoCreateInstance( CLSID_SpVoice ), InitError);
+    SysCall( CoCreateInstance(CLSID_SpVoice, NULL, CLSCTX_INPROC_SERVER, IID_ISpVoice,
+                              (void**)&d->voice), InitError);
 
     if (n.id.isEmpty()) {
         WCHAR * w_id = 0L;
         WCHAR * w_name = 0L;
-        CComPtr<ISpObjectToken> voice;
+        ISpObjectToken * voice;
         SysCall( d->voice->GetVoice(&voice), InitError);
         SysCall( SpGetDescription(voice, &w_name), InitError);
         SysCall( voice->GetId(&w_id), InitError);
         n.name = QString::fromWCharArray(w_name);
         n.id = QString::fromWCharArray(w_id);
-        voice.Release();
+        voice->Release();
     }
     else {
         SysCall( SpEnumTokens(SPCAT_VOICES, NULL, NULL, &voices), InitError);
         SysCall( voices->GetCount(&count), InitError);
-        for (int i =0; i< count; i++) {
+        for (ULONG i =0; i< count; i++) {
             WCHAR * w_id = 0L;
-            CComPtr<ISpObjectToken> voice;
+            ISpObjectToken * voice;
             SysCall( voices->Next( 1, &voice, NULL ), InitError);
             SysCall( voice->GetId(&w_id), InitError);
             QString id = QString::fromWCharArray(w_id);
             if (id == n.id) d->voice->SetVoice(voice);
-            voice.Release();
+            voice->Release();
         }
     }
 
@@ -158,16 +156,16 @@ QtSpeech::VoiceNames QtSpeech::voices()
 {
     VoiceNames vs;       
     ULONG count = 0;
-    CComPtr<IEnumSpObjectTokens> voices;
+    IEnumSpObjectTokens * voices;
 
     CoInitialize(NULL);
     SysCall( SpEnumTokens(SPCAT_VOICES, NULL, NULL, &voices), LogicError);
     SysCall( voices->GetCount(&count), LogicError);
 
-    for(int i=0; i< count; i++) {
+    for(ULONG i=0; i< count; i++) {
         WCHAR * w_id = 0L;
         WCHAR * w_name = 0L;
-        CComPtr<ISpObjectToken> voice;
+        ISpObjectToken * voice;
         SysCall( voices->Next( 1, &voice, NULL ), LogicError);
         SysCall( SpGetDescription(voice, &w_name), LogicError);
         SysCall( voice->GetId(&w_id), LogicError);
@@ -177,33 +175,24 @@ QtSpeech::VoiceNames QtSpeech::voices()
         VoiceName n = { id, name };
         vs << n;
 
-        voice.Release();
+        voice->Release();
     }
     return vs;
 }
 
-void QtSpeech::tell(QString text) const {
-    tell(text, 0L,0L);
-}
-
-void QtSpeech::tell(QString text, QObject * obj, const char * slot) const
+void QtSpeech::tell(QString text)
 {
     if (d->waitingFinish)
-        throw LogicError(Where+"Already waiting to finish speech");
-
-    d->onFinishObj = obj;
-    d->onFinishSlot = slot;
-    if (obj && slot)
-        connect(const_cast<QtSpeech *>(this), SIGNAL(finished()), obj, slot);
+        SysCall( d->voice->Speak( 0, SPF_PURGEBEFORESPEAK, 0), LogicError);
 
     d->waitingFinish = true;
-    const_cast<QtSpeech *>(this)->startTimer(100);
+    startTimer(100);
 
     Private::WCHAR_Holder w_text(text);
     SysCall( d->voice->Speak( w_text.w, SPF_ASYNC | SPF_IS_NOT_XML, 0), LogicError);
 }
 
-void QtSpeech::say(QString text) const
+void QtSpeech::say(QString text)
 {
     Private::WCHAR_Holder w_text(text);
     SysCall( d->voice->Speak( w_text.w, SPF_IS_NOT_XML, 0), LogicError);
@@ -219,7 +208,7 @@ void QtSpeech::timerEvent(QTimerEvent * te)
         if (es.dwRunningState == SPRS_DONE) {
             d->waitingFinish = false;
             killTimer(te->timerId());
-            finished();
+            emit finished();
         }
     }
 }

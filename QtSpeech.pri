@@ -29,13 +29,9 @@ macx {
 }
 
 win32 {
-    SOURCES += QtSpeech_win.cpp
-
-    INCLUDEPATH += "C:/Program Files/PSDK/Include"
-    INCLUDEPATH += "C:/Program Files/PSDK/Include/atl"
-    INCLUDEPATH += "C:/Program Files/Microsoft Speech SDK 5.1/Include"
-
-    LIBS += -L"C:/Program Files/Microsoft Speech SDK 5.1/Lib/i386"
+    HEADERS += sapi.hh sphelper.hh
+    SOURCES += QtSpeech_win.cpp guids.c
+    LIBS    += -lole32
 }
 
 unix:!mac {

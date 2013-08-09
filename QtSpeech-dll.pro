@@ -25,5 +25,4 @@ CONFIG(debug, debug|release) {
 CONFIG(release, debug|release) {
     TARGET = QtSpeech
 }
-
 include(QtSpeech.pri)
