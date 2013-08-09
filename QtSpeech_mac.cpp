@@ -178,7 +178,7 @@ void QtSpeech::tell(QString text)
     if (ok != noErr) throw LogicError(Where+"SpeakCFString()");
 }
 
-void QtSpeech::say(QString text) const
+void QtSpeech::say(QString text)
 {
     if (d->isWaitingInLoop)
         throw LogicError(Where+"Already in process of saying something");
