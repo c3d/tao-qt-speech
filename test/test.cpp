@@ -34,6 +34,7 @@ int main(int argc, char ** argv)
     //return 0;
 
     qDebug() << "About to say asynchrounously" << text << "using voice:" << speech.name().name;
-    speech.tell(text, &a, SLOT(quit()));
+    QObject::connect(&speech, SIGNAL(finished()), &a, SLOT(quit()));
+    speech.tell(text);
     return a.exec();
 }
