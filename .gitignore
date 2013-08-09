@@ -3,3 +3,6 @@ release
 Makefile
 Makefile.*
 *.user
+*.o
+lib*
+moc*
