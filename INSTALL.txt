@@ -1,44 +1,26 @@
-Introduction
-============
 
-QtSpeech uses qmake to build itself as static library.
-qmake is part of a Qt distribution. For Unix Festival
-is required as TTS engine.
+This is a modified version of the QtSpeech library that supports
+the MinGW compiler on Windows, for use by the Speech module of
+Tao Presentations (http://taodyne.com).
 
-Building QtSpeech
-==========================
+This library contains:
+- Source code from: http://gitorious.org/qt-speech, covered by the
+LGPL license (see file headers and LICENSE_LGPL.txt).
+- Files derived from the Goldendict application
+https://github.com/goldendict/goldendict, covered by the GPLv3
+license (see LICENSE_GPL.txt).
+Therefore the license for the whole library is GPLv3.
 
-A) Unix
---------
+To build the library, you need the Tao Presentations SDK which is bundled
+with the free version of the application (get it from http://taodyne.com).
+Clone the project under <SDK root>/speech/qt-speech then run configure
+and type "make ; make install" in the qt-speech directory.
 
-sh get-festival.sh
-qmake QtSpeech.pro
-make
+Enjoy,
 
-B) Win32/MSVC
---------
+-- 
+The Taodyne Dev Team
 
-Install Speech SDK (Windows XP - Speech SDK 5.1).
-Unfortunately fixes in header files are required.
-Maybe due to outdated version of SDK for Windows XP.
-
-sphelper.h:
-line 769:
--    const ulLenVendorPreferred = wcslen(pszVendorPreferred);
-+    const ULONG ulLenVendorPreferred = wcslen(pszVendorPreferred);
-line 1418:
--    static CoMemCopyWFEX(const WAVEFORMATEX * pSrc, WAVEFORMATEX ** ppCoMemWFEX)
-+    static int CoMemCopyWFEX(const WAVEFORMATEX * pSrc, WAVEFORMATEX ** ppCoMemWFEX)
-line 2372:
--        for (const WCHAR * psz = (const WCHAR *)lParam; *psz; psz++) {}
-+        const WCHAR * psz; for (psz = (const WCHAR *)lParam; *psz; psz++) {}
-
-As alternative to avoid building process you can use already built
-QtSpeech.vs2005.lib, but still you will need sapi.lib on linking stage.
-
-B) Mac OS X
---------
-
-qmake QtSpeech.pro
-make
+http://taodyne.com
+contact <at> taodyne.com
 
