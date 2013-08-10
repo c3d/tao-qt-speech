@@ -35,10 +35,47 @@ namespace QtSpeech_v1 { // API v1.0
     }\
 }
 
-// qobject for speech thread
-bool QtSpeech_th::init = false;
-void QtSpeech_th::say(QString text) {
+WavePlayer::WavePlayer(QObject * p)
+    : QProcess(p), tmp("/tmp/qtspeechXXXXXX.wav")
+{
+    tmp.open();
+}
+
+QString WavePlayer::filePath()
+{
+    return tmp.fileName();
+}
+
+void WavePlayer::play()
+{
+    const char * p = getenv("QTSPEECH_CMD");
+    if (!p)
+        p = "aplay %f";
+    start(QString(p).replace("%f", filePath()));
+}
+
+void WavePlayer::stop()
+{
+    terminate();
+    if (!waitForFinished(3000))
+    {
+        kill();
+        waitForFinished(3000);
+    }
+}
+
+// qobject for speech process
+bool QtSpeech_proc::init = false;
+QPointer<WavePlayer> QtSpeech_proc::player = 0;
+void QtSpeech_proc::say(QString text) {
     try {
+        if (player)
+        {
+            player->stop();
+            delete player;
+        }
+        player = new WavePlayer;
+
         if (!init) {
             int heap_size = FESTIVAL_HEAP_SIZE;
             festival_initialize(true,heap_size);
@@ -46,13 +83,19 @@ void QtSpeech_th::say(QString text) {
         }
         has_error = false;
         EST_String est_text(text.toUtf8());
-        SysCall(festival_say_text(est_text), QtSpeech::LogicError);
+        EST_Wave est_wave;
+        SysCall(festival_text_to_wave(est_text, est_wave), QtSpeech::LogicError);
+        EST_String est_file(player->filePath().toUtf8());
+        est_wave.save(est_file);
+
+        connect(player, SIGNAL(finished(int)), this, SIGNAL(finished()));
+        connect(player, SIGNAL(finished(int)), player, SLOT(deleteLater()));
+        player->play();
     }
     catch(QtSpeech::LogicError e) {
         has_error = true;
         err = e;
     }
-    emit finished();
 }
 
 // internal data
@@ -61,10 +104,7 @@ public:
     Private() {}
     VoiceName name;
     static const QString VoiceId;
-
-    static QPointer<QThread> speechThread;
 };
-QPointer<QThread> QtSpeech::Private::speechThread = 0L;
 const QString QtSpeech::Private::VoiceId = QString("festival:%1");
 
 // implementation
@@ -112,28 +152,16 @@ QtSpeech::VoiceNames QtSpeech::voices()
 
 void QtSpeech::tell(QString text)
 {
-    if (!d->speechThread) {
-        d->speechThread = new QThread;
-        d->speechThread->start();
-    }
-
-    QtSpeech_th * th = new QtSpeech_th;
-    th->moveToThread(d->speechThread);
-    connect(th, SIGNAL(finished()), this, SIGNAL(finished()), Qt::QueuedConnection);
-    connect(th, SIGNAL(finished()), th, SLOT(deleteLater()), Qt::QueuedConnection);
-    QMetaObject::invokeMethod(th, "say", Qt::QueuedConnection, Q_ARG(QString,text));
+    QtSpeech_proc * th = new QtSpeech_proc(this);
+    connect(th, SIGNAL(finished()), this, SIGNAL(finished()));
+    connect(th, SIGNAL(finished()), th, SLOT(deleteLater()));
+    th->say(text);
 }
 
 void QtSpeech::say(QString text)
 {
-    if (!d->speechThread) {
-        d->speechThread = new QThread;
-        d->speechThread->start();
-    }
-
     QEventLoop el;
-    QtSpeech_th th;
-    th.moveToThread(d->speechThread);
+    QtSpeech_proc th;
     connect(&th, SIGNAL(finished()), &el, SLOT(quit()), Qt::QueuedConnection);
     QMetaObject::invokeMethod(&th, "say", Qt::QueuedConnection, Q_ARG(QString,text));
     el.exec();

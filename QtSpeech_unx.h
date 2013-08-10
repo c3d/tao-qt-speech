@@ -20,15 +20,34 @@
 #define QtSpeech_unx_H
 
 #include <QObject>
+#include <QTemporaryFile>
+#include <QPointer>
+#include <QProcess>
 #include <QtSpeech>
 
 namespace QtSpeech_v1 { // API v1.0
 
-class QtSpeech_th : public QObject {
+
+class WavePlayer : public QProcess {
 Q_OBJECT
 public:
-    QtSpeech_th(QObject * p =0L):QObject(p),has_error(false),err("") {}
-    virtual ~QtSpeech_th() {}
+    WavePlayer(QObject * p = 0);
+    virtual ~WavePlayer() {}
+
+    QString filePath();
+    void play();
+    void stop();
+
+private:
+    QTemporaryFile tmp;
+};
+
+
+class QtSpeech_proc : public QObject {
+Q_OBJECT
+public:
+    QtSpeech_proc(QObject * p =0L):QObject(p),has_error(false),err("") {}
+    virtual ~QtSpeech_proc() {}
 
 public slots:
     void say(QString text);
@@ -39,8 +58,9 @@ signals:
 
 private:
     friend class QtSpeech;
-    QtSpeech::LogicError err;
     bool has_error;
+    QtSpeech::LogicError err;
+    static QPointer<WavePlayer> player;
     static bool init;
 };
 
