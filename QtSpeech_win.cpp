@@ -30,15 +30,17 @@ namespace QtSpeech_v1 { // API v1.0
 
 // some defines for throwing exceptions
 #define Where QString("%1:%2:").arg(__FILE__).arg(__LINE__)
-#define SysCall(x,e) {\
-    HRESULT hr = x;\
-    if (FAILED(hr)) {\
-        QString msg = #e;\
-        msg += ":"+QString(__FILE__);\
-        msg += ":"+QString::number(__LINE__)+":"+#x+":";\
-        msg += " error code " + hr ;\
-        throw e(msg);\
-    }\
+#define SysCall(x,e) {                                          \
+    HRESULT hr = x;                                             \
+    if (FAILED(hr)) {                                           \
+        QString msg = QString("%1:%2:%3:%4:error code %5")      \
+                  .arg(#e)                                      \
+                  .arg(__FILE__)                                \
+                  .arg(__LINE__)                                \
+                  .arg(#x)                                      \
+                  .arg(hr, 0, 16);                              \
+        throw e(msg);                                           \
+    }                                                           \
 }
 
 // internal data
@@ -114,6 +116,7 @@ QtSpeech::QtSpeech(VoiceName n, QObject * parent)
         WCHAR * w_id = 0L;
         WCHAR * w_name = 0L;
         ISpObjectToken * voice;
+
         SysCall( d->voice->GetVoice(&voice), InitError);
         SysCall( SpGetDescription(voice, &w_name), InitError);
         SysCall( voice->GetId(&w_id), InitError);
